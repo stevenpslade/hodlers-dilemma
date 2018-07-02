@@ -1,0 +1,28 @@
+{
+  "name": "hodlers-dilemma",
+  "version": "1.0.0",
+  "description": "An Ethereum game based on the Prisoner's Dilemma game theory.",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "test"
+  },
+  "author": "Steven Slade",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-core": "^6.26.3",
+    "babel-loader": "^7.1.4",
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-react": "^6.24.1",
+    "css-loader": "^0.28.11",
+    "node-sass": "^4.9.0",
+    "react": "^16.4.1",
+    "react-dom": "^16.4.1",
+    "sass-loader": "^7.0.3",
+    "style-loader": "^0.21.0",
+    "web3": "^1.0.0-beta.34",
+    "webpack": "^4.14.0"
+  }
+}
