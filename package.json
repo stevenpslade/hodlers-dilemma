@@ -7,7 +7,10 @@
     "test": "test"
   },
   "scripts": {
-    "test": "test"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm run-script clean && webpack",
+    "start": "http-server dist/",
+    "clean": "rm -rf ./dist/build.js"
   },
   "author": "Steven Slade",
   "license": "ISC",
@@ -23,6 +26,7 @@
     "sass-loader": "^7.0.3",
     "style-loader": "^0.21.0",
     "web3": "^1.0.0-beta.34",
-    "webpack": "^4.14.0"
+    "webpack": "^4.14.0",
+    "webpack-cli": "^3.0.8"
   }
 }
