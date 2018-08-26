@@ -2,7 +2,7 @@ pragma solidity ^0.4.24;
 
 contract HodlersDilemma {
   address public owner;
-  uint256 public globalPotAmount;
+  uint256 public payoutBank = 0;
   uint256 public minPlayerFee;
   uint256 public gameExpiration = 7 days;
   uint128 public gameFee = 300; // 3%
@@ -26,6 +26,21 @@ contract HodlersDilemma {
 
   uint256[] incompleteGames;
 
+  event StartGame(
+    address indexed _player1,
+    uint256 _gameId
+  );
+
+  event JoinGame(
+    address indexed _player2,
+    uint256 _gameId
+  );
+
+  event FinishGame(
+    address indexed _player1,
+    uint256 _gameId
+  );
+
   modifier onlyOwner() {
     require(msg.sender == owner);
     _;
@@ -43,13 +58,12 @@ contract HodlersDilemma {
 
   constructor(uint256 _minPlayerFee) public payable {
     owner = msg.sender;
-    globalPotAmount = msg.value;
     minPlayerFee = _minPlayerFee;
   }
 
   function startGame(bytes32 _commitment) public payable hasPaid returns (uint256) {
-    // ensure the global pot amount has enough to payout the winner(s)
-    require(globalPotAmount >= msg.value);
+    // ensure contract balance will have enough to payout winnings
+    require(address(this).balance - payoutBank >= msg.value);
 
     Game memory _game = Game({
       player1: msg.sender,
@@ -62,13 +76,16 @@ contract HodlersDilemma {
     playerToGame[msg.sender] = newGameId;
     incompleteGames.push(newGameId);
 
-    globalPotAmount -= msg.value;
+    payoutBank += msg.value;
 
-    // TODO: this will not return ID as tx won't be mined, need to have an event here, test this
-    return newGameId;
+    emit StartGame(msg.sender, newGameId);
   }
 
   function joinGame(bytes5 _choice) public payable splitOrSteal(_choice) {
+    // TODO: BUG - since joining a game is random, p2 doesn't know how much to wager
+    // potential solution is having player 2 set the max wager they  are willing to 
+    // join and finds a game <= to the max wager
+
     uint256 index = _getUnplannedGame(incompleteGames.length);
     uint256 gameId = incompleteGames[index];
 
@@ -84,6 +101,8 @@ contract HodlersDilemma {
     game.player2 = msg.sender;
     game.player2Choice = _choice;
     game.expiration = now + gameExpiration;
+
+    emit JoinGame(msg.sender, gameId);
   }
 
   function reveal(bytes5 _choice, uint256 _nonce) public splitOrSteal(_choice) {
@@ -111,13 +130,15 @@ contract HodlersDilemma {
     } else if (_choice == 'split' && game.player2Choice == 'steal') {
       // send player2 wager and all winnings
       game.player2.transfer( (game.wager * 2) - _calcFee(game.wager) );
-    } else if (_choice == 'steal' && game.player2Choice == 'steal') {
-      // steal-steal result puts wagers towards globalPotAmount
-      globalPotAmount += game.wager * 2;
     }
+    // steal-steal contract keeps wagers
+
+    payoutBank -= game.wager;
 
     // deleting finished game from incompleteGames and filling gap left in array
     _deleteFromIncompleteGames(_gameId);
+
+    emit FinishGame(msg.sender, _gameId);
   }
 
   // claimTimeout can be called by player2 in the event that
@@ -135,6 +156,7 @@ contract HodlersDilemma {
     );
 
     game.complete = true;
+    payoutBank -= game.wager;
     _deleteFromIncompleteGames(_gameId);
 
     if (game.player2Choice == 'steal') {
@@ -156,6 +178,7 @@ contract HodlersDilemma {
     );
 
     game.complete = true;
+    payoutBank -= game.wager;
     _deleteFromIncompleteGames(_gameId);
 
     msg.sender.transfer(game.wager);
@@ -185,10 +208,6 @@ contract HodlersDilemma {
     return _reward * gameFee / 10000;
   }
 
-  function changeGlobalPotAmount(uint256 _newPotAmount) public onlyOwner {
-    globalPotAmount = _newPotAmount;
-  }
-
   function changeMinPlayerFee(uint256 _newPlayerFee) public onlyOwner {
     minPlayerFee = _newPlayerFee;
   }
@@ -201,7 +220,13 @@ contract HodlersDilemma {
     gameFee = _newGameFee;
   }
 
-  // TODO: maybe make pause functionalityepic
+  // TODO: maybe make pause functionality
+
+  function withdrawBalance() external onlyOwner {
+    if (address(this).balance > payoutBank) {
+      owner.transfer(address(this).balance - payoutBank);
+    }
+  }
 
   function() public payable {}
 }
