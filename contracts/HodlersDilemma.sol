@@ -5,6 +5,7 @@ contract HodlersDilemma {
   uint256 public globalPotAmount;
   uint256 public minPlayerFee;
   uint256 public gameExpiration = 3 days;
+  uint128 public gameFee = 300; // 3%
 
   struct Game {
     address player1;
@@ -63,7 +64,7 @@ contract HodlersDilemma {
   }
 
   function joinGame(bytes5 _choice) public payable {
-    uint256 index = getUnplannedGame(incompleteGames.length);
+    uint256 index = _getUnplannedGame(incompleteGames.length);
     uint256 gameId = incompleteGames[index];
 
     Game storage game = games[gameId];
@@ -98,15 +99,15 @@ contract HodlersDilemma {
 
     if (_choice == 'split' && game.player2Choice == 'split') {
       // send original wager + half the winnings to each player
-      uint256 winnings = game.wager / 2;
-      game.player1.transfer(game.wager + winnings);
-      game.player2.transfer(game.wager + winnings);
+      uint256 reward = (game.wager / 2) - _calcFee(game.wager);
+      game.player1.transfer(game.wager + reward);
+      game.player2.transfer(game.wager + reward);
     } else if (_choice == 'steal' && game.player2Choice == 'split') {
       // send player1 wager and all winnings
-      game.player1.transfer(game.wager * 2);
+      game.player1.transfer( (game.wager * 2) - _calcFee(game.wager) );
     } else if (_choice == 'split' && game.player2Choice == 'steal') {
       // send player2 wager and all winnings
-      game.player2.transfer(game.wager * 2);
+      game.player2.transfer( (game.wager * 2) - _calcFee(game.wager) );
     } else if (_choice == 'steal' && game.player2Choice == 'steal') {
       // steal-steal result puts wagers towards globalPotAmount
       globalPotAmount += game.wager * 2;
@@ -114,6 +115,7 @@ contract HodlersDilemma {
 
     game.complete = true;
 
+    // deleting finished game from incompleteGames and filling gap left in array
     for (uint i = 0; i < incompleteGames.length-1; i++) {
       if (incompleteGames[i] == _gameId) {
         incompleteGames[i] = incompleteGames[incompleteGames.length-1];
@@ -128,12 +130,16 @@ contract HodlersDilemma {
   // TODO: claimTimeout function
   // TODO: cancel function
 
-  function getUnplannedGame(uint256 _max) internal pure returns(uint256) {
+  function _getUnplannedGame(uint256 _max) internal pure returns(uint256) {
     /*
     * Not adding one to result of modulo because we are passing the length
     * of the array which is already one greater than highest index
     */
     return uint256(keccak256(block.timestamp)) % _max;
+  }
+
+  function _calcFee(uint256 _reward) internal pure returns(uint256) {
+    return _reward * gameFee / 10000;
   }
 
   function changeGlobalPotAmount(uint256 _newPotAmount) public onlyOwner {
@@ -144,9 +150,15 @@ contract HodlersDilemma {
     minPlayerFee = _newPlayerFee;
   }
 
-  function changeGameExpiration(uint 256 _newExpiration) public onlyOwner {
+  function changeGameExpiration(uint256 _newExpiration) public onlyOwner {
     gameExpiration = _newExpiration;
   }
+
+  function changeGameFee(uint128 _newGameFee) public onlyOwner {
+    gameFee = _newGameFee;
+  }
+
+  // TODO: maybe make pause functionalityepic
 
   function() public payable {}
 }
