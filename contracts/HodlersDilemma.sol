@@ -67,8 +67,11 @@ contract HodlersDilemma {
 
     Game memory _game = Game({
       player1: msg.sender,
+      player2 : address(0),
       player1Commitment: _commitment,
+      player2Choice: 0,
       wager: msg.value,
+      expiration: 0,
       complete: false
     });
 
@@ -112,7 +115,7 @@ contract HodlersDilemma {
       game.expiration > now
     );
 
-    require(keccak256(_choice, nonce) == game.player1Commitment);
+    require(keccak256(abi.encodePacked(_choice, _nonce)) == game.player1Commitment);
     game.complete = true;
 
     if (_choice == 'split' && game.player2Choice == 'split') {
@@ -180,12 +183,12 @@ contract HodlersDilemma {
     msg.sender.transfer(game.wager);
   }
 
-  function _getUnplannedGame(uint256 _max) internal pure returns(uint256) {
+  function _getUnplannedGame(uint256 _max) internal view returns(uint256) {
     /*
     * Not adding one to result of modulo because we are passing the length
     * of the array which is already one greater than highest index
     */
-    return uint256(keccak256(block.timestamp)) % _max;
+    return uint256(keccak256(abi.encodePacked(block.timestamp))) % _max;
   }
 
   function _deleteFromIncompleteGames(uint256 _gameId) internal {
@@ -200,7 +203,7 @@ contract HodlersDilemma {
     incompleteGames.length--;
   }
 
-  function _calcFee(uint256 _reward) internal pure returns(uint256) {
+  function _calcFee(uint256 _reward) internal view returns(uint256) {
     return _reward * gameFee / 10000;
   }
 
