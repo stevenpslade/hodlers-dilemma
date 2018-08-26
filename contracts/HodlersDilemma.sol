@@ -4,7 +4,7 @@ contract HodlersDilemma {
   address public owner;
   uint256 public globalPotAmount;
   uint256 public minPlayerFee;
-  uint256 public gameExpiration = 3 days;
+  uint256 public gameExpiration = 7 days;
   uint128 public gameFee = 300; // 3%
 
   struct Game {
@@ -36,6 +36,11 @@ contract HodlersDilemma {
     _;
   }
 
+  modifier splitOrSteal(bytes5 _choice) {
+    require(_choice == 'split' || _choice == 'steal');
+    _;
+  }
+
   constructor(uint256 _minPlayerFee) public payable {
     owner = msg.sender;
     globalPotAmount = msg.value;
@@ -63,7 +68,7 @@ contract HodlersDilemma {
     return newGameId;
   }
 
-  function joinGame(bytes5 _choice) public payable {
+  function joinGame(bytes5 _choice) public payable splitOrSteal(_choice) {
     uint256 index = _getUnplannedGame(incompleteGames.length);
     uint256 gameId = incompleteGames[index];
 
@@ -81,10 +86,7 @@ contract HodlersDilemma {
     game.expiration = now + gameExpiration;
   }
 
-  function reveal(bytes5 _choice, uint256 _nonce) public {
-    // ensure the choice is either split or steal
-    require(_choice == 'split' || _choice == 'steal');
-
+  function reveal(bytes5 _choice, uint256 _nonce) public splitOrSteal(_choice) {
     uint256 _gameId = playerToGame[msg.sender];
     Game storage game = games[_gameId];
 
@@ -118,8 +120,31 @@ contract HodlersDilemma {
     _deleteFromIncompleteGames(_gameId);
   }
 
-  // TODO: claimTimeout function
-  // TODO: cancel function
+  // claimTimeout can be called by player2 in the event that
+  // player1 has not revealed their answer by the time the game
+  // has expired. Player2 is rewarded based on the optimal outcome
+  // for their answer.
+  function claimTimeout() public {
+    uint256 _gameId = playerToGame[msg.sender];
+    Game storage game = games[_gameId];
+
+    require(
+      game.player2 == msg.sender && 
+      now >= game.expiration && 
+      game.complete == false
+    );
+
+    game.complete = true;
+    _deleteFromIncompleteGames(_gameId);
+
+    if (game.player2Choice == 'steal') {
+      game.player2.transfer( (game.wager * 2) - _calcFee(game.wager) );
+    } else if (game.player2Choice == 'split') {
+      uint256 reward = (game.wager / 2) - _calcFee(game.wager);
+      game.player2.transfer(game.wager + reward);
+    }
+  }
+
   function cancel() public {
     uint256 _gameId = playerToGame[msg.sender];
     Game storage game = games[_gameId];
@@ -132,7 +157,7 @@ contract HodlersDilemma {
 
     game.complete = true;
     _deleteFromIncompleteGames(_gameId);
-    
+
     msg.sender.transfer(game.wager);
   }
 
