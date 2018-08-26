@@ -96,6 +96,7 @@ contract HodlersDilemma {
     );
 
     require(keccak256(_choice, nonce) == game.player1Commitment);
+    game.complete = true;
 
     if (_choice == 'split' && game.player2Choice == 'split') {
       // send original wager + half the winnings to each player
@@ -113,9 +114,37 @@ contract HodlersDilemma {
       globalPotAmount += game.wager * 2;
     }
 
-    game.complete = true;
-
     // deleting finished game from incompleteGames and filling gap left in array
+    _deleteFromIncompleteGames(_gameId);
+  }
+
+  // TODO: claimTimeout function
+  // TODO: cancel function
+  function cancel() public {
+    uint256 _gameId = playerToGame[msg.sender];
+    Game storage game = games[_gameId];
+
+    require(
+      game.player1 == msg.sender && 
+      game.player2 == address(0) && 
+      game.complete == false
+    );
+
+    game.complete = true;
+    _deleteFromIncompleteGames(_gameId);
+    
+    msg.sender.transfer(game.wager);
+  }
+
+  function _getUnplannedGame(uint256 _max) internal pure returns(uint256) {
+    /*
+    * Not adding one to result of modulo because we are passing the length
+    * of the array which is already one greater than highest index
+    */
+    return uint256(keccak256(block.timestamp)) % _max;
+  }
+
+  function _deleteFromIncompleteGames(uint256 _gameId) internal {
     for (uint i = 0; i < incompleteGames.length-1; i++) {
       if (incompleteGames[i] == _gameId) {
         incompleteGames[i] = incompleteGames[incompleteGames.length-1];
@@ -125,17 +154,6 @@ contract HodlersDilemma {
 
     delete incompleteGames[incompleteGames.length-1];
     incompleteGames.length--;
-  }
-
-  // TODO: claimTimeout function
-  // TODO: cancel function
-
-  function _getUnplannedGame(uint256 _max) internal pure returns(uint256) {
-    /*
-    * Not adding one to result of modulo because we are passing the length
-    * of the array which is already one greater than highest index
-    */
-    return uint256(keccak256(block.timestamp)) % _max;
   }
 
   function _calcFee(uint256 _reward) internal pure returns(uint256) {
