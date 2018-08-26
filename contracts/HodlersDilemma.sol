@@ -2,8 +2,8 @@ pragma solidity ^0.4.24;
 
 contract HodlersDilemma {
   address public owner;
+  uint256 public gameWager;
   uint256 public payoutBank = 0;
-  uint256 public minPlayerFee;
   uint256 public gameExpiration = 7 days;
   uint128 public gameFee = 300; // 3%
 
@@ -47,7 +47,7 @@ contract HodlersDilemma {
   }
 
   modifier hasPaid() {
-    require(msg.value >= minPlayerFee);
+    require(msg.value == gameWager);
     _;
   }
 
@@ -56,9 +56,9 @@ contract HodlersDilemma {
     _;
   }
 
-  constructor(uint256 _minPlayerFee) public payable {
+  constructor(uint256 _gameWager) public payable {
     owner = msg.sender;
-    minPlayerFee = _minPlayerFee;
+    gameWager = _gameWager;
   }
 
   function startGame(bytes32 _commitment) public payable hasPaid returns (uint256) {
@@ -82,10 +82,6 @@ contract HodlersDilemma {
   }
 
   function joinGame(bytes5 _choice) public payable splitOrSteal(_choice) {
-    // TODO: BUG - since joining a game is random, p2 doesn't know how much to wager
-    // potential solution is having player 2 set the max wager they  are willing to 
-    // join and finds a game <= to the max wager
-
     uint256 index = _getUnplannedGame(incompleteGames.length);
     uint256 gameId = incompleteGames[index];
 
@@ -94,7 +90,7 @@ contract HodlersDilemma {
       game.player1 != address(0) && 
       game.player1 != msg.sender && 
       game.player2 == address(0) && 
-      msg.value == game.wager && 
+      game.wager == msg.value && 
       game.complete == false
     );
 
@@ -193,7 +189,7 @@ contract HodlersDilemma {
   }
 
   function _deleteFromIncompleteGames(uint256 _gameId) internal {
-    for (uint i = 0; i < incompleteGames.length-1; i++) {
+    for (uint i = 0; i < incompleteGames.length; i++) {
       if (incompleteGames[i] == _gameId) {
         incompleteGames[i] = incompleteGames[incompleteGames.length-1];
         break;
@@ -208,8 +204,8 @@ contract HodlersDilemma {
     return _reward * gameFee / 10000;
   }
 
-  function changeMinPlayerFee(uint256 _newPlayerFee) public onlyOwner {
-    minPlayerFee = _newPlayerFee;
+  function changeGameWager(uint256 _newGameWager) public onlyOwner {
+    gameWager = _newGameWager;
   }
 
   function changeGameExpiration(uint256 _newExpiration) public onlyOwner {
@@ -219,8 +215,6 @@ contract HodlersDilemma {
   function changeGameFee(uint128 _newGameFee) public onlyOwner {
     gameFee = _newGameFee;
   }
-
-  // TODO: maybe make pause functionality
 
   function withdrawBalance() external onlyOwner {
     if (address(this).balance > payoutBank) {
