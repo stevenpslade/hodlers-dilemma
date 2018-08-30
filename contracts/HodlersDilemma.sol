@@ -61,7 +61,7 @@ contract HodlersDilemma {
     gameWager = _gameWager;
   }
 
-  function startGame(bytes32 _commitment) public payable hasPaid returns (uint256) {
+  function startGame(bytes32 _commitment) public payable hasPaid {
     // ensure contract balance will have enough to payout winnings
     require(address(this).balance - payoutBank >= msg.value);
 
