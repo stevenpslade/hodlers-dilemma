@@ -11,5 +11,5 @@ const options = { contracts: [HodlersDilemma] };
 const drizzleStore = generateStore(options);
 const drizzle = new Drizzle(options, drizzleStore);
 
-ReactDOM.render(<App />, document.getElementById('root'));
+ReactDOM.render(<App drizzle={drizzle} />, document.getElementById('root'));
 registerServiceWorker();
