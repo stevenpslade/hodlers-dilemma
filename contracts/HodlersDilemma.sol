@@ -61,6 +61,14 @@ contract HodlersDilemma {
     gameWager = _gameWager;
   }
 
+  function getGamesCount() public view returns(uint) {
+    return games.length;
+  }
+
+  function getGame(uint256 index) public view returns(address, address, uint256, bool) {
+      return (games[index].player1, games[index].player2, games[index].wager, games[index].complete);
+  }
+
   function startGame(bytes32 _commitment) public payable hasPaid {
     // ensure contract balance will have enough to payout winnings
     require(address(this).balance - payoutBank >= msg.value);
