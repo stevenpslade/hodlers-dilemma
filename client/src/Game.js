@@ -1,7 +1,13 @@
 import React from 'react';
 
 class Game extends React.Component {
-  state = { dataKey: null, stackId: null };
+  state = {
+    dataKey: null,
+    stackId: null,
+    gameWager: null,
+    choice: 'split',
+    nonce: ''
+  };
 
   componentDidMount() {
     const { drizzle, drizzleState } = this.props;
@@ -10,21 +16,26 @@ class Game extends React.Component {
     const dataKey = contract.methods['gameWager'].cacheCall();
 
     this.setState({ dataKey });
-  };
+  }
 
-  startGame = (choice, nonce, wager) => {
+  startGame = (choice, nonce) => {
     const { drizzle, drizzleState } = this.props;
     const contract = drizzle.contracts.HodlersDilemma;
 
-    const commitment = drizzle.web3.utils.keccak256(choice, nonce);
+    const { HodlersDilemma } = drizzleState.contracts;
+    const gameWager = HodlersDilemma.gameWager[this.state.dataKey];
+
+    const choiceNonceHex = drizzle.web3.utils.toHex(choice) + drizzle.web3.utils.toHex(nonce);
+    const commitment = drizzle.web3.utils.keccak256(choiceNonceHex);
 
     const stackId = contract.methods['startGame'].cacheSend(commitment, {
       from: drizzleState.accounts[0],
-      value: drizzle.web3.utils.toWei(wager, 'ether')
+      gas: 1000000,
+      value: gameWager.value
     });
 
     this.setState({ stackId });
-  };
+  }
 
   getTxStatus = () => {
     // get the transaction states from the drizzle state
@@ -38,17 +49,64 @@ class Game extends React.Component {
 
     // otherwise, return the transaction status
     return `Transaction status: ${transactions[txHash].status}`;
-  };
+  }
 
-  render() {
+  displayGameWager = () => {
     const { HodlersDilemma } = this.props.drizzleState.contracts;
     const web3 = this.props.drizzle.web3;
 
     const gameWager = HodlersDilemma.gameWager[this.state.dataKey];
 
-    // TODO: add form for starting game with choice and nonce
-
     return <div>Game Wager: {gameWager && web3.utils.fromWei(gameWager.value, 'ether')}</div>;
+  }
+
+  displayStartGameForm = () => {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>
+          Choice:
+          <select name="choice" value={this.state.choice} onChange={this.handleChange}>
+            <option value="split">Split</option>
+            <option value="steal">Steal</option>
+          </select>
+        </label>
+        <br />
+        <label>
+          Nonce:
+          <input
+            name="nonce"
+            type="text"
+            value={this.state.nonce}
+            onChange={this.handleChange} />
+        </label>
+        <input type="submit" value="Submit" />
+      </form>
+    );
+  }
+
+  handleChange = event => {
+    const target = event.target;
+    const value = target.value;
+    const name = target.name;
+
+    this.setState({
+      [name]: value
+    });
+  }
+
+  handleSubmit = event => {
+    event.preventDefault();
+    this.startGame(this.state.choice, this.state.nonce);
+  }
+
+  render() {
+    return (
+      <div>
+        {this.displayGameWager()}
+        {this.displayStartGameForm()}
+        <div>{this.getTxStatus()}</div>
+      </div>
+    );
   };
 }
 
