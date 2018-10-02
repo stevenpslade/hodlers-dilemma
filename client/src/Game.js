@@ -1,22 +1,32 @@
 import React from 'react';
 
 class Game extends React.Component {
-  state = {
-    dataKey: null,
-    stackId: null,
-    gameWager: null,
-    choice: 'split',
-    nonce: ''
-  };
+  constructor(props) {
+    super(props);
+    this.state = {
+      dataKey: null,
+      stackId: null,
+      gameWager: null,
+      choice: 'split',
+      nonce: ''
+    };
 
-  componentDidMount() {
     const { drizzle, drizzleState } = this.props;
     const contract = drizzle.contracts.HodlersDilemma;
 
-    const dataKey = contract.methods['gameWager'].cacheCall();
-
-    this.setState({ dataKey });
+    contract.methods.gameWager().call().then((data) => {
+      this.setState({ gameWager: data });
+    });
   }
+
+  // componentDidMount() {
+  //   const { drizzle, drizzleState } = this.props;
+  //   const contract = drizzle.contracts.HodlersDilemma;
+
+  //   const dataKey = contract.methods['gameWager'].cacheCall();
+
+  //   this.setState({ dataKey });
+  // }
 
   startGame = (choice, nonce) => {
     const { drizzle, drizzleState } = this.props;
@@ -52,12 +62,8 @@ class Game extends React.Component {
   }
 
   displayGameWager = () => {
-    const { HodlersDilemma } = this.props.drizzleState.contracts;
     const web3 = this.props.drizzle.web3;
-
-    const gameWager = HodlersDilemma.gameWager[this.state.dataKey];
-
-    return <div>Game Wager: {gameWager && web3.utils.fromWei(gameWager.value, 'ether')}</div>;
+    return <div>Game Wager: {this.state.gameWager && web3.utils.fromWei(this.state.gameWager, 'ether')} ETH</div>;
   }
 
   displayStartGameForm = () => {
