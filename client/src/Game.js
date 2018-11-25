@@ -4,11 +4,14 @@ class Game extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      dataKey: null,
+      gameWagerDataKey: null,
+      getIncompleteGamesDataKey: null,
       stackId: null,
       gameWager: null,
       choice: 'split',
-      nonce: ''
+      nonce: '',
+      incompleteGames: null,
+      games: null
     };
 
     const { drizzle, drizzleState } = this.props;
@@ -17,23 +20,28 @@ class Game extends React.Component {
     contract.methods.gameWager().call().then((data) => {
       this.setState({ gameWager: data });
     });
+
+    contract.methods.getIncompleteGames().call().then((data) => {
+      this.setState({ incompleteGames: data });
+    });
   }
 
-  // componentDidMount() {
-  //   const { drizzle, drizzleState } = this.props;
-  //   const contract = drizzle.contracts.HodlersDilemma;
+  componentDidMount() {
+    const { drizzle, drizzleState } = this.props;
+    const contract = drizzle.contracts.HodlersDilemma;
 
-  //   const dataKey = contract.methods['gameWager'].cacheCall();
+    const gameWagerDataKey = contract.methods['gameWager'].cacheCall();
+    const getIncompleteGamesDataKey = contract.methods['getIncompleteGames'].cacheCall();
 
-  //   this.setState({ dataKey });
-  // }
+    this.setState({ gameWagerDataKey, getIncompleteGamesDataKey });
+  }
 
   startGame = (choice, nonce) => {
     const { drizzle, drizzleState } = this.props;
     const contract = drizzle.contracts.HodlersDilemma;
 
     const { HodlersDilemma } = drizzleState.contracts;
-    const gameWager = HodlersDilemma.gameWager[this.state.dataKey];
+    const gameWager = HodlersDilemma.gameWager[this.state.gameWagerDataKey];
 
     const choiceNonceHex = drizzle.web3.utils.toHex(choice) + drizzle.web3.utils.toHex(nonce);
     const commitment = drizzle.web3.utils.keccak256(choiceNonceHex);
@@ -90,6 +98,53 @@ class Game extends React.Component {
     );
   }
 
+  getGames = () => {
+    const { HodlersDilemma } = this.props.drizzleState.contracts;
+    const incompleteGamesRes = HodlersDilemma.getIncompleteGames[this.state.getIncompleteGamesDataKey];
+
+    let games = [];
+    if (incompleteGamesRes) {
+      const contract = this.props.drizzle.contracts.HodlersDilemma;
+      const incompleteGameIds = incompleteGamesRes.value;
+
+      if (this.state.incompleteGames !== incompleteGameIds) {
+        for (let i = 0; i < incompleteGameIds.length; i++) {
+          let gameId = incompleteGameIds[i];
+
+          contract.methods.getGame(gameId).call().then((data) => {
+            games.push(data);
+          });
+        }
+
+        this.setState({ games: games, incompleteGames: incompleteGameIds });
+      }
+    }
+  }
+
+  displayGames = () => {
+    this.getGames();
+
+    const web3 = this.props.drizzle.web3;
+    let games = this.state.games;
+    if (games && games.length > 0) {
+      let gamesList = [];
+
+      for (let i = 0; i < games.length; i++) {
+        let game = games[i];
+        gamesList.push(
+          <div key={i}>
+            <span>Player 1: {game[0]} </span>
+            <span>Wager: {web3.utils.fromWei(game[2], 'ether')} ETH</span>
+          </div>
+        );
+      }
+
+      return gamesList;
+    } else {
+      return 'No games found.';
+    }
+  }
+
   handleChange = event => {
     const target = event.target;
     const value = target.value;
@@ -111,6 +166,7 @@ class Game extends React.Component {
         {this.displayGameWager()}
         {this.displayStartGameForm()}
         <div>{this.getTxStatus()}</div>
+        <div>Games: {this.displayGames()}</div>
       </div>
     );
   };

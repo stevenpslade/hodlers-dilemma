@@ -59,19 +59,23 @@ contract HodlersDilemma {
   constructor(uint256 _gameWager) public payable {
     owner = msg.sender;
     gameWager = _gameWager;
+    payoutBank = msg.value;
   }
 
-  function getGamesCount() public view returns(uint) {
-    return games.length;
+  function getIncompleteGames() public view returns(uint256[]) {
+    return incompleteGames;
   }
 
-  function getGame(uint256 index) public view returns(address, address, uint256, bool) {
-      return (games[index].player1, games[index].player2, games[index].wager, games[index].complete);
+  function getGame(uint256 index) public view returns(address, address, uint256) {
+      return (games[index].player1, games[index].player2, games[index].wager);
   }
 
   function startGame(bytes32 _commitment) public payable hasPaid {
     // ensure contract balance will have enough to payout winnings
     require(address(this).balance - payoutBank >= msg.value);
+    // ensure player has not already started a game, currently only supports
+    // starting one game at a time but can join many games
+    require(playerToGame[msg.sender] == 0);
 
     Game memory _game = Game({
       player1: msg.sender,
